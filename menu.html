@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Menu | Crumb &amp; Co.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="has-bar">
+<header id="site-header"></header>
+
+<div class="wrap page-title">
+  <h1>Take-Away Menu</h1>
+  <p class="muted" id="outlet-line"></p>
+</div>
+
+<div class="toolbar">
+  <div class="wrap">
+    <div class="row">
+      <input type="search" id="q" placeholder="Search the menu…" aria-label="Search menu">
+      <label class="toggle"><input type="checkbox" id="veg"> Veg only</label>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+</div>
+
+<main class="wrap" id="menu"></main>
+
+<div class="cartbar" id="cartbar">
+  <div class="wrap">
+    <div><strong id="cb-count"></strong> <span class="muted" style="color:#d9c9b8">· </span><span id="cb-total"></span></div>
+    <a class="btn" href="cart.html">View cart →</a>
+  </div>
+</div>
+
+<dialog id="dlg"><div class="dlg" id="dlg-body"></div></dialog>
+
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("menu");
+const o = getOutlet();
+$("#outlet-line").innerHTML = o
+  ? `Picking up from <strong>${esc(o.name)}</strong> · <a href="outlets.html" style="text-decoration:underline">change</a>`
+  : `No outlet chosen yet · <a href="outlets.html" style="text-decoration:underline">choose pickup outlet</a>`;
+
+let activeCat = "all";
+$("#chips").innerHTML = [{ id: "all", name: "All" }, ...CATEGORIES].map(c => `<button class="chip ${c.id === "all" ? "on" : ""}" data-c="${c.id}">${esc(c.name)}</button>`).join("");
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  activeCat = b.dataset.c;
+  $$(".chip").forEach(x => x.classList.toggle("on", x === b));
+  render();
+  if (activeCat !== "all") { const h = $("#" + activeCat); h && h.scrollIntoView(); }
+});
+$("#q").addEventListener("input", render);
+$("#veg").addEventListener("change", render);
+
+function render() {
+  const q = $("#q").value.toLowerCase().trim(), veg = $("#veg").checked;
+  let html = "";
+  for (const c of CATEGORIES) {
+    if (activeCat !== "all" && c.id !== activeCat) continue;
+    const items = ITEMS.filter(i => i.cat === c.id && (!veg || i.veg) && (!q || (i.name + i.desc).toLowerCase().includes(q)));
+    if (!items.length) continue;
+    html += `<h2 class="cat-head" id="${c.id}">${esc(c.name)}</h2><div class="grid">` + items.map(i => `
+      <div class="card">
+        <div class="thumb">${i.emoji}</div>
+        <div class="body">
+          <h3><span class="vt ${i.veg ? "" : "nv"}"></span>${esc(i.name)}${i.best ? '<span class="tag">Bestseller</span>' : ""}</h3>
+          <p>${esc(i.desc)}</p>
+          <div class="foot"><span class="price">${i.variants ? "from " : ""}${inr(i.price)}</span>
+          <button class="btn add" data-id="${i.id}">Add</button></div>
+        </div>
+      </div>`).join("") + `</div>`;
+  }
+  $("#menu").innerHTML = html || `<div class="empty">No items match your search.</div>`;
+}
+render();
+if (location.hash) { const h = $(location.hash); h && setTimeout(() => h.scrollIntoView(), 50); }
+
+$("#menu").addEventListener("click", e => {
+  const b = e.target.closest(".add"); if (!b) return;
+  const it = findItem(b.dataset.id);
+  if (it.variants || it.addons || it.message) openDialog(it);
+  else addToCart({ id: it.id, name: it.name, emoji: it.emoji, unit: it.price, qty: 1 });
+});
+
+/* options dialog */
+const dlg = $("#dlg");
+function openDialog(it) {
+  let qty = 1;
+  $("#dlg-body").innerHTML = `
+    <button class="x" aria-label="Close" id="dx">×</button>
+    <h3>${esc(it.name)}</h3><p class="muted" style="margin:0">${esc(it.desc)}</p>
+    ${it.variants ? `<div class="opt-group"><h4>Choose size</h4>${it.variants.map((v, k) => `
+      <label class="opt"><input type="radio" name="v" value="${k}" ${k === 0 ? "checked" : ""}><span>${esc(v.name)}</span><span>${v.delta ? "+" + inr(v.delta) : "Included"}</span></label>`).join("")}</div>` : ""}
+    ${it.addons ? `<div class="opt-group"><h4>Add-ons</h4>${it.addons.map((a, k) => `
+      <label class="opt"><input type="checkbox" name="a" value="${k}"><span>${esc(a.name)}</span><span>${a.price ? "+" + inr(a.price) : "Free"}</span></label>`).join("")}</div>` : ""}
+    ${it.message ? `<div class="opt-group"><h4>Message on cake (optional)</h4><input id="msg" maxlength="30" placeholder="e.g. Happy Birthday Riya"></div>` : ""}
+    <div class="dlg-foot">
+      <div class="qty"><button id="m">−</button><span id="n">1</span><button id="p">+</button></div>
+      <button class="btn block" id="go"></button>
+    </div>`;
+  const calc = () => {
+    const v = it.variants ? it.variants[+($("input[name=v]:checked", dlg).value)] : null;
+    const adds = $$("input[name=a]:checked", dlg).map(x => it.addons[+x.value]);
+    const unit = it.price + (v ? v.delta : 0) + adds.reduce((s, a) => s + a.price, 0);
+    $("#go").textContent = `Add to cart · ${inr(unit * qty)}`;
+    return { v, adds, unit };
+  };
+  $("#dlg-body").addEventListener("change", calc);
+  $("#m").onclick = () => { qty = Math.max(1, qty - 1); $("#n").textContent = qty; calc(); };
+  $("#p").onclick = () => { qty = Math.min(20, qty + 1); $("#n").textContent = qty; calc(); };
+  $("#dx").onclick = () => dlg.close();
+  $("#go").onclick = () => {
+    const { v, adds, unit } = calc();
+    addToCart({ id: it.id, name: it.name, emoji: it.emoji, unit, qty, variant: v ? v.name : "", addons: adds.map(a => a.name), message: it.message ? ($("#msg").value || "").trim() : "" });
+    dlg.close();
+  };
+  calc(); dlg.showModal();
+}
+dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+
+/* sticky cart bar */
+function refreshBar() {
+  const n = cartCount();
+  $("#cartbar").classList.toggle("show", n > 0);
+  $("#cb-count").textContent = `${n} item${n > 1 ? "s" : ""}`;
+  $("#cb-total").textContent = inr(totals().subtotal);
+}
+refreshBar();
+new MutationObserver(refreshBar).observe($(".cart-badge"), { childList: true, characterData: true, subtree: true });
+</script>
+</body>
+</html>

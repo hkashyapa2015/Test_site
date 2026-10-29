@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Cart | Crumb &amp; Co.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="site-header"></header>
+<div class="wrap page-title"><h1>Your Cart</h1></div>
+<main class="wrap" id="root"></main>
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("cart");
+
+function draw() {
+  const cart = getCart();
+  if (!cart.length) {
+    $("#root").innerHTML = `<div class="empty"><div style="font-size:54px">🛍️</div><p>Your cart is empty.</p><a class="btn" href="menu.html">Browse the menu</a></div>`;
+    return;
+  }
+  const t = totals();
+  $("#root").innerHTML = `
+  <div class="two">
+    <div class="panel">
+      ${cart.map(l => `
+        <div class="line">
+          <div class="em">${l.emoji || "🍞"}</div>
+          <div>
+            <strong>${esc(l.name)}</strong>
+            <div class="meta">${[l.variant, (l.addons || []).join(", "), l.message ? `Message: “${esc(l.message)}”` : ""].filter(Boolean).map(x => x.startsWith("Message") ? x : esc(x)).join(" · ")}</div>
+            <div class="qty" style="margin-top:6px"><button data-k="${esc(l.key)}" data-d="-1" aria-label="Decrease">−</button><span>${l.qty}</span><button data-k="${esc(l.key)}" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+          <div class="right"><strong>${inr(l.unit * l.qty)}</strong><br><button class="rm" data-rm="${esc(l.key)}">Remove</button></div>
+        </div>`).join("")}
+    </div>
+    <div class="panel">
+      <h2>Order summary</h2>
+      <div class="coupon">
+        <input id="code" placeholder="Coupon code" value="${esc(store.get("cc_coupon", ""))}" aria-label="Coupon code">
+        <button class="btn ghost" id="apply">Apply</button>
+      </div>
+      <div id="cmsg" class="${t.couponOk ? "ok" : "err"}">${t.couponOk ? "✓ " + esc(t.couponMsg) : (store.get("cc_coupon", "") ? esc(t.couponMsg) : "")}</div>
+      <div class="muted small" style="margin-top:4px">Try CRUMB10 or FIRST50</div>
+      <div class="sum" style="margin-top:12px">
+        <div><span>Subtotal</span><span>${inr(t.subtotal)}</span></div>
+        ${t.discount ? `<div class="disc"><span>Discount (${esc(t.coupon)})</span><span>−${inr(t.discount)}</span></div>` : ""}
+        <div><span>GST (5%)</span><span>${inr(t.gst)}</span></div>
+        <div><span>Packaging</span><span>${inr(t.packaging)}</span></div>
+        <div class="tot"><span>Total</span><span>${inr(t.total)}</span></div>
+      </div>
+      <a class="btn block" href="checkout.html" style="margin-top:14px">Proceed to checkout</a>
+      <a class="btn ghost block" href="menu.html" style="margin-top:8px">Add more items</a>
+    </div>
+  </div>`;
+}
+draw();
+
+$("#root").addEventListener("click", e => {
+  const q = e.target.closest("[data-d]");
+  if (q) { changeQty(q.dataset.k, +q.dataset.d); draw(); return; }
+  const r = e.target.closest("[data-rm]");
+  if (r) { removeLine(r.dataset.rm); draw(); return; }
+  if (e.target.id === "apply") {
+    const code = $("#code").value.trim();
+    if (!code) { store.del("cc_coupon"); draw(); return; }
+    const res = applyCoupon(code, totals(getCart(), "").subtotal);
+    store.set("cc_coupon", res.ok ? code.toUpperCase() : code);
+    draw();
+  }
+});
+</script>
+</body>
+</html>

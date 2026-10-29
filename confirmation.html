@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order Confirmed | Crumb &amp; Co.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="site-header"></header>
+<main class="wrap" id="root"></main>
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("");
+const o = store.get("cc_last_order", null);
+if (!o) {
+  $("#root").innerHTML = `<div class="empty"><p>No recent order found.</p><a class="btn" href="menu.html">Browse the menu</a></div>`;
+} else {
+  const t = o.totals;
+  $("#root").innerHTML = `
+  <div class="done">
+    <div class="tick">✓</div>
+    <h1>Thank you, ${esc(o.customer.name.split(" ")[0])}!</h1>
+    <p class="muted">Your order has been placed. Show this order number at the counter.</p>
+    <div class="oid">${esc(o.id)}</div>
+    <div class="panel">
+      <h2>Pickup details</h2>
+      <p style="margin:0"><strong>${esc(o.outlet.name)}</strong><br><span class="muted">${esc(o.outlet.address)}</span></p>
+      <p><strong>When:</strong> ${esc(o.pickup)}<br><strong>Payment:</strong> ${esc(o.payment)}${o.notes ? `<br><strong>Notes:</strong> ${esc(o.notes)}` : ""}</p>
+      <h2 style="margin-top:16px">Items</h2>
+      ${o.items.map(l => `<div class="sum"><div><span>${l.qty} × ${esc(l.name)}${l.variant ? " (" + esc(l.variant) + ")" : ""}${(l.addons || []).length ? `<br><span class="muted small">${esc(l.addons.join(", "))}</span>` : ""}${l.message ? `<br><span class="muted small">Message: ${esc(l.message)}</span>` : ""}</span><span>${inr(l.unit * l.qty)}</span></div></div>`).join("")}
+      <div class="sum" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px">
+        <div><span>Subtotal</span><span>${inr(t.subtotal)}</span></div>
+        ${t.discount ? `<div class="disc"><span>Discount (${esc(t.coupon)})</span><span>−${inr(t.discount)}</span></div>` : ""}
+        <div><span>GST (5%)</span><span>${inr(t.gst)}</span></div>
+        <div><span>Packaging</span><span>${inr(t.packaging)}</span></div>
+        <div class="tot"><span>Total</span><span>${inr(t.total)}</span></div>
+      </div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <a class="btn" href="menu.html">Order again</a>
+      <button class="btn ghost" onclick="window.print()">Print receipt</button>
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>

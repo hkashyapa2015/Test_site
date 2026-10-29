@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Checkout | Crumb &amp; Co.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="site-header"></header>
+<div class="wrap page-title"><h1>Checkout</h1></div>
+<main class="wrap" id="root"></main>
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("cart");
+const cart = getCart();
+
+if (!cart.length) {
+  $("#root").innerHTML = `<div class="empty"><p>Your cart is empty.</p><a class="btn" href="menu.html">Browse the menu</a></div>`;
+} else if (!getOutlet()) {
+  location.replace("outlets.html?next=checkout");
+} else {
+  const saved = store.get("cc_customer", { name: "", phone: "", email: "" });
+  $("#root").innerHTML = `
+  <form class="two" id="form" novalidate>
+    <div>
+      <div class="panel">
+        <h2>Your details</h2>
+        <label class="f" for="name">Full name</label>
+        <input id="name" autocomplete="name" value="${esc(saved.name)}">
+        <div class="err" id="e-name"></div>
+        <label class="f" for="phone">Mobile number</label>
+        <input id="phone" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10-digit number" value="${esc(saved.phone)}">
+        <div class="err" id="e-phone"></div>
+        <label class="f" for="email">Email (optional)</label>
+        <input id="email" type="email" autocomplete="email" value="${esc(saved.email)}">
+        <div class="err" id="e-email"></div>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h2>Pickup</h2>
+        <label class="f" for="outlet">Outlet</label>
+        <select id="outlet">${OUTLETS.map(o => `<option value="${o.id}" ${getOutlet().id === o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>
+        <div class="muted small" id="addr" style="margin-top:6px"></div>
+        <label class="f" for="slot">Pickup time</label>
+        <select id="slot"></select>
+        <div class="err" id="e-slot"></div>
+        <label class="f" for="notes">Order notes (optional)</label>
+        <textarea id="notes" rows="2" maxlength="200" placeholder="Anything we should know?"></textarea>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h2>Payment</h2>
+        <div class="pay">
+          <label><input type="radio" name="pay" value="Pay at outlet" checked> Pay at outlet</label>
+          <label><input type="radio" name="pay" value="UPI (demo)"> UPI</label>
+          <label><input type="radio" name="pay" value="Card (demo)"> Credit / Debit card</label>
+        </div>
+        <div class="notice">Demo mode: no real payment is taken. To accept online payments, plug a gateway such as Razorpay into <code>placeOrder()</code> below.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="summary"></div>
+  </form>`;
+
+  const form = $("#form");
+
+  function drawSummary() {
+    const t = totals();
+    $("#summary").innerHTML = `
+      <h2>Order summary</h2>
+      ${cart.map(l => `<div class="sum"><div><span>${l.qty} × ${esc(l.name)}${l.variant ? " (" + esc(l.variant) + ")" : ""}</span><span>${inr(l.unit * l.qty)}</span></div></div>`).join("")}
+      <div class="sum" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px">
+        <div><span>Subtotal</span><span>${inr(t.subtotal)}</span></div>
+        ${t.discount ? `<div class="disc"><span>Discount (${esc(t.coupon)})</span><span>−${inr(t.discount)}</span></div>` : ""}
+        <div><span>GST (5%)</span><span>${inr(t.gst)}</span></div>
+        <div><span>Packaging</span><span>${inr(t.packaging)}</span></div>
+        <div class="tot"><span>Total</span><span>${inr(t.total)}</span></div>
+      </div>
+      <button class="btn block" id="place" type="submit" style="margin-top:14px">Place order · ${inr(t.total)}</button>
+      <a class="btn ghost block" href="cart.html" style="margin-top:8px">Back to cart</a>`;
+  }
+
+  function drawSlots() {
+    const o = OUTLETS.find(x => x.id === $("#outlet").value);
+    $("#addr").textContent = o.address;
+    const opts = [];
+    if (isOpenNow(o)) {
+      const n = new Date(), m = n.getHours() * 60 + n.getMinutes() + PREP_MINUTES;
+      if (m < toMin(o.close)) opts.push(`<option value="asap">ASAP (ready in about ${PREP_MINUTES} min)</option>`);
+    }
+    pickupSlots(o).forEach(s => opts.push(`<option value="${s.value}">${esc(s.label)}</option>`));
+    $("#slot").innerHTML = opts.join("");
+  }
+
+  $("#outlet").addEventListener("change", () => { setOutlet($("#outlet").value); drawSlots(); });
+  drawSlots(); drawSummary();
+
+  const setErr = (id, msg) => { $("#e-" + id).textContent = msg || ""; return !msg; };
+
+  function validate() {
+    const name = $("#name").value.trim(), phone = $("#phone").value.trim(), email = $("#email").value.trim();
+    let ok = true;
+    ok = setErr("name", name.length < 2 ? "Please enter your name" : "") && ok;
+    ok = setErr("phone", /^[6-9]\d{9}$/.test(phone) ? "" : "Enter a valid 10-digit mobile number") && ok;
+    ok = setErr("email", email && !/^\S+@\S+\.\S+$/.test(email) ? "Enter a valid email" : "") && ok;
+    ok = setErr("slot", $("#slot").value ? "" : "No pickup slots available") && ok;
+    return ok;
+  }
+
+  /* Replace the body of this function with your payment gateway + backend call. */
+  function placeOrder() {
+    const t = totals();
+    const o = OUTLETS.find(x => x.id === $("#outlet").value);
+    const slotVal = $("#slot").value;
+    const pickup = slotVal === "asap"
+      ? `ASAP (about ${PREP_MINUTES} min)`
+      : $("#slot").selectedOptions[0].textContent;
+    const order = {
+      id: "CC" + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(Math.random() * 90 + 10),
+      placedAt: new Date().toISOString(),
+      customer: { name: $("#name").value.trim(), phone: $("#phone").value.trim(), email: $("#email").value.trim() },
+      outlet: o, pickup, notes: $("#notes").value.trim(),
+      payment: $("input[name=pay]:checked").value,
+      items: cart, totals: t
+    };
+    store.set("cc_customer", order.customer);
+    store.set("cc_last_order", order);
+    const history = store.get("cc_orders", []); history.unshift(order); store.set("cc_orders", history.slice(0, 20));
+    store.del("cc_cart"); store.del("cc_coupon");
+    location.href = "confirmation.html";
+  }
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (!validate()) { const f = $(".err:not(:empty)"); f && f.previousElementSibling.focus(); return; }
+    const b = $("#place"); b.disabled = true; b.textContent = "Placing your order…";
+    setTimeout(placeOrder, 900);
+  });
+}
+</script>
+</body>
+</html>

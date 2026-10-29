@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crumb &amp; Co. | Order Take-Away Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <h1>Fresh from the oven, straight to your hands.</h1>
+      <p>Order cakes, croissants, breads and coffee online and pick them up at your nearest Hyderabad outlet.</p>
+      <a class="btn" href="menu.html">Order take-away</a>
+      <a class="btn ghost" href="outlets.html" style="margin-left:8px">Find an outlet</a>
+    </div>
+    <div class="hero-art" aria-hidden="true">🥐</div>
+  </section>
+
+  <section class="section">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><b>1</b><strong>Pick your outlet</strong><br><span class="muted">Choose where you'd like to collect.</span></div>
+      <div class="step"><b>2</b><strong>Build your order</strong><br><span class="muted">Add items, sizes and add-ons to your cart.</span></div>
+      <div class="step"><b>3</b><strong>Pick up &amp; enjoy</strong><br><span class="muted">Choose a pickup slot and walk in.</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Browse by category</h2>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="section">
+    <h2>Bestsellers</h2>
+    <div class="grid" id="best"></div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("home");
+$("#cats").innerHTML = CATEGORIES.map(c => `<a href="menu.html#${c.id}">${esc(c.name)}</a>`).join("");
+$("#best").innerHTML = ITEMS.filter(i => i.best).map(i => `
+  <a class="card" href="menu.html#${i.cat}">
+    <div class="thumb">${i.emoji}</div>
+    <div class="body"><h3><span class="vt ${i.veg ? "" : "nv"}"></span>${esc(i.name)}</h3><p>${esc(i.desc)}</p>
+    <div class="foot"><span class="price">${inr(i.price)}</span><span class="muted small">Order →</span></div></div>
+  </a>`).join("");
+</script>
+</body>
+</html>

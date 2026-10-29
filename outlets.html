@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Outlets | Crumb &amp; Co.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="site-header"></header>
+<div class="wrap page-title">
+  <h1>Our Hyderabad Outlets</h1>
+  <p class="muted">Choose where you'd like to pick up your order.</p>
+</div>
+<main class="wrap"><div class="outlets" id="list"></div></main>
+<footer id="site-footer"></footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+renderChrome("outlets");
+function draw() {
+  const sel = getOutlet();
+  $("#list").innerHTML = OUTLETS.map(o => {
+    const open = isOpenNow(o);
+    return `<div class="outlet ${sel && sel.id === o.id ? "sel" : ""}">
+      <span class="status ${open ? "open" : "closed"}">${open ? "Open now" : "Closed now"}</span>
+      <h3>${esc(o.name)}</h3>
+      <div class="muted">${esc(o.address)}</div>
+      <div class="small">🕗 ${fmtHHMM(o.open)} – ${fmtHHMM(o.close)} · 📞 ${esc(o.phone)}</div>
+      <button class="btn ${sel && sel.id === o.id ? "" : "ghost"}" data-id="${o.id}">${sel && sel.id === o.id ? "Selected ✓" : "Pick up here"}</button>
+    </div>`;
+  }).join("");
+}
+draw();
+$("#list").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setOutlet(b.dataset.id);
+  const next = new URLSearchParams(location.search).get("next");
+  location.href = next === "checkout" ? "checkout.html" : "menu.html";
+});
+</script>
+</body>
+</html>
